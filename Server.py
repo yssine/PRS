@@ -1,5 +1,8 @@
 import socket
 import threading
+import pickle
+import os
+import platform
 from glob import glob as g
 
 
@@ -11,8 +14,12 @@ FORMAT="utf-8"
 PORT = 8080
 HEADER = 1024
 CONNECTIONS=1024
-PATH="./DB/"
 PORTS=[0]*CONNECTIONS
+
+PATH="./DB/"
+if platform.system()=="Windows":
+    PATH= ".\\DB\\"
+
 # print(PORTS[:5])
  
 def create_socket(port):
@@ -20,6 +27,21 @@ def create_socket(port):
     s=socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
     s.bind((SERVER, port))
     filename,conn=s.recvfrom(HEADER)
+    local_path=PATH+filename.decode(FORMAT)
+    print(g(local_path))
+    if g(local_path):
+        s.sendto( "ACK_FILENAME".encode(FORMAT),conn)
+    else:
+        s.sendto( "DOES NOT EXIST".encode(FORMAT),conn)
+        disc=s.recvfrom(HEADER)[0].decode(FORMAT)
+        if disc==DISCONNECT_MESSAGE:
+            print(disc)
+            s.sendto( "ACK_DISC".encode(FORMAT),conn)
+            s.close()
+            PORTS[port-8081]=0
+    # files=g(filename.decode(FORMAT))
+    # s.sendto( pickle.dumps(files),conn)
+
 
 
 def get_port():
@@ -70,14 +92,14 @@ def start():
     while True:
         msg,conn=server.recvfrom(HEADER)
         msg=msg.decode(FORMAT)
-        print(msg)
+        # print(msg)
         if msg=="SYN":
             port=get_port()
             thread = threading.Thread(target=create_socket, args=(port,))
             thread.start()
             server.sendto(f"ACK_SYN {port}".encode(FORMAT),conn)
             msg=server.recvfrom(HEADER)[0].decode(FORMAT)
-            print(msg)
+            # print(msg)
             if msg=="ACK":
                 pass
 
@@ -90,6 +112,9 @@ def start():
         
         # print(f"[ACTIVE CONNECTIONS] {threading.activeCount() - 1}")
 
+
+
+print(f"PWD: {os.getcwd()}")
 
 print("[STARTING] server is starting...")
 start()
